@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const https = require("https");
-const { execSync } = require("child_process");
+const { execSync, execFileSync } = require("child_process");
 const { ContainerClient } = require("@azure/storage-blob");
 const mime = require("mime");
 const apiVersion = "2021-08-01"; //"2020-06-01-preview";
@@ -105,8 +105,15 @@ class HttpClient {
     }
 
     getAccessToken(tenantId, servicePrincipal, secret) {
-        if (tenantId != "" && tenantId != null) {
-            execSync(`az login --service-principal --username ` + servicePrincipal + ` --password ` + secret + ` --tenant ` + tenantId);
+        if (process.env.USE_MANAGED_IDENTITY === "true") {
+            const clientId = process.env.AZURE_CLIENT_ID;
+            if (clientId) {
+                execFileSync("az", ["login", "--identity", "--username", clientId]);
+            } else {
+                execFileSync("az", ["login", "--identity"]);
+            }
+        } else if (tenantId != "" && tenantId != null) {
+            execFileSync("az", ["login", "--service-principal", "--username", servicePrincipal, "--password", secret, "--tenant", tenantId]);
         }
 
         const accessToken = execSync(`az account get-access-token --resource-type arm --output tsv --query accessToken`).toString().trim();
